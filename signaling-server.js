@@ -7,7 +7,7 @@ const https = require("https")
 
 const main = express()
 
-// Cargar las claves privadas y el certificado SSL
+// Cargar las claves privadas y el certificado SSL para que sea seguro (HTTPS)
 let privateKey, certificate
 privateKey = fs.readFileSync("ssl/server-key.pem", "utf8")
 certificate = fs.readFileSync("ssl/server-cert.pem", "utf8")
