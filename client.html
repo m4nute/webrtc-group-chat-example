@@ -13,6 +13,8 @@
         aspect-ratio: 16 / 9;
         border: 1px solid black;
       }
+      /* CSS para los tags de video */
+
       video:first-of-type {
         position: absolute;
         aspect-ratio: 4 / 3;
@@ -20,6 +22,7 @@
         right: 10px;
         bottom: 10px;
       }
+      /* Estilos CSS para el primer elemento de video (el propio) */
     </style>
 
     <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
@@ -33,19 +36,24 @@
     var DEFAULT_CHANNEL = "canal"
     var MUTE_AUDIO_BY_DEFAULT = false
     var ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }]
+    /* Variables de configuración para la conexión */
+
     function join_chat_channel(channel, userdata) {
       signaling_socket.emit("join", { channel: channel, userdata: userdata })
     }
+    /* Función para unirse a un canal de chat */
 
     var signaling_socket = null
     var local_media_stream = null
     var peers = {}
     var peer_media_elements = {}
+    /* Variables para la señalizacion de la conexion*/
 
     function init() {
       console.log("Connecting to signaling server")
       signaling_socket = io(SIGNALING_SERVER)
       signaling_socket = io()
+      /* Conexión al servidor de señalizacion */
 
       signaling_socket.on("connect", function () {
         console.log("Connected to signaling server")
@@ -53,6 +61,8 @@
           join_chat_channel(DEFAULT_CHANNEL, { username: "juan perez" })
         })
       })
+      /* Evento cuando se conecta al servidor de señalizacion */
+
       signaling_socket.on("disconnect", function () {
         console.log("Disconnected from signaling server")
 
@@ -66,10 +76,12 @@
         peers = {}
         peer_media_elements = {}
       })
+      /* Evento cuando se desconecta del servidor de señalizacion */
 
       function part_chat_channel(channel) {
         signaling_socket.emit("part", channel)
       }
+      /* Funcion para salir de un canal de chat */
 
       signaling_socket.on("addPeer", function (config) {
         console.log("Signaling server said to add peer:", config)
@@ -80,6 +92,8 @@
         }
         var peer_connection = new RTCPeerConnection({ iceServers: ICE_SERVERS }, { optional: [{ DtlsSrtpKeyAgreement: true }] })
         peers[peer_id] = peer_connection
+
+        javascript
 
         peer_connection.onicecandidate = function (event) {
           if (event.candidate) {
@@ -132,6 +146,7 @@
           )
         }
       })
+      /* Evento cuando se agrega un peer en la conexion */
 
       signaling_socket.on("sessionDescription", function (config) {
         console.log("Remote description received: ", config)
@@ -174,61 +189,71 @@
         )
         console.log("Description Object: ", desc)
       })
+      /* Evento cuando se recibe una descripcion de sesion remota */
 
       signaling_socket.on("iceCandidate", function (config) {
         var peer = peers[config.peer_id]
         var ice_candidate = config.ice_candidate
         peer.addIceCandidate(new RTCIceCandidate(ice_candidate))
       })
+      /* Evento cuando se recibe un IceCandidate */
 
       signaling_socket.on("removePeer", function (config) {
-        console.log("Signaling server said to remove peer:", config)
+        console.log("El servidor de señalización ha indicado eliminar al par:", config)
         var peer_id = config.peer_id
+
+        // Eliminar los elementos del peer si existe
         if (peer_id in peer_media_elements) {
           peer_media_elements[peer_id].remove()
         }
+
+        // Cerrar la conexión del peer si existe
         if (peer_id in peers) {
           peers[peer_id].close()
         }
 
+        // Eliminar la referencia al peer
         delete peers[peer_id]
         delete peer_media_elements[config.peer_id]
       })
-    }
 
-    function setup_local_media(callback, errorback) {
-      if (local_media_stream != null) {
-        if (callback) callback()
-        return
-      }
-
-      console.log("Requesting access to local audio / video inputs")
-
-      navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia
-
-      attachMediaStream = function (element, stream) {
-        console.log("DEPRECATED, attachMediaStream will soon be removed.")
-        element.srcObject = stream
-      }
-
-      navigator.mediaDevices
-        .getUserMedia({ audio: USE_AUDIO, video: USE_VIDEO })
-        .then(function (stream) {
-          console.log("Access granted to audio/video")
-          local_media_stream = stream
-          var local_media = USE_VIDEO ? $("<video>") : $("<audio>")
-          local_media.attr("autoplay", "autoplay")
-          local_media.attr("muted", "true") /* always mute ourselves by default */
-          local_media.attr("controls", "")
-          $("body").append(local_media)
-          attachMediaStream(local_media[0], stream)
-
+      function setup_local_media(callback, errorback) {
+        if (local_media_stream != null) {
           if (callback) callback()
-        })
-        .catch(function () {
-          console.log("Access denied for audio/video")
-          if (errorback) errorback()
-        })
+          return
+        }
+
+        // Obtener el metodo adecuado para obtener acceso a los dispositivos de audio/video
+        navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia
+
+        // Funcion para adjuntar el los elementos al HTML
+        attachMediaStream = function (element, stream) {
+          console.log("DEPRECIADO, attachMediaStream será eliminado pronto.")
+          element.srcObject = stream
+        }
+
+        // Obtener acceso a los dispositivos de audio/video
+        navigator.mediaDevices
+          .getUserMedia({ audio: USE_AUDIO, video: USE_VIDEO })
+          .then(function (stream) {
+            console.log("Acceso concedido al audio/video")
+            local_media_stream = stream
+            var local_media = USE_VIDEO ? $("<video>") : $("<audio>")
+
+            // Configurar atributos para el elemento de medios local
+            local_media.attr("autoplay", "autoplay")
+            local_media.attr("muted", "true")
+            local_media.attr("controls", "")
+            $("body").append(local_media)
+            attachMediaStream(local_media[0], stream)
+
+            if (callback) callback()
+          })
+          .catch(function () {
+            console.log("Acceso denegado al audio/video")
+            if (errorback) errorback()
+          })
+      }
     }
   </script>
 </html>
