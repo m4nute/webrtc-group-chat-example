@@ -7,62 +7,36 @@
       body {
         background-color: #333;
       }
+
       video {
-        width: 320px;
-        height: 240px;
+        width: 30rem;
+        aspect-ratio: 16 / 9;
         border: 1px solid black;
       }
-      button {
+      video:first-of-type {
         position: absolute;
-        top: 5px;
-        left: 5px;
+        aspect-ratio: 4 / 3;
+        width: 15rem;
+        right: 10px;
+        bottom: 10px;
       }
     </style>
 
     <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
   </head>
-  <body onload="init()">
-    <button id="v">Apagar video</button>
-  </body>
+  <body onload="init()"></body>
 
   <script>
     var SIGNALING_SERVER = window.location.protocol + "://" + window.location.hostname + (window.location.port ? ":" + window.location.port : "")
     var USE_AUDIO = true
     var USE_VIDEO = true
-    var DEFAULT_CHANNEL = "some-global-channel-name"
+    var DEFAULT_CHANNEL = "canal"
     var MUTE_AUDIO_BY_DEFAULT = false
-
-    let btnVideo = document.getElementById("v")
-    btnVideo.addEventListener("click", apagarVideo)
-
-    function apagarVideo(evento) {
-      $("video").remove()
-      $("audio").remove()
-      USE_VIDEO = !USE_VIDEO
-      navigator.mediaDevices
-        .getUserMedia({ audio: USE_AUDIO, video: USE_VIDEO })
-        .then(function (stream) {
-          console.log("Access granted to audio/video")
-          local_media_stream = stream
-          var local_media = USE_VIDEO ? $("<video>") : $("<audio>")
-          local_media.attr("autoplay", "autoplay")
-          local_media.attr("muted", "true") /* always mute ourselves by default */
-          local_media.attr("controls", "")
-          $("body").append(local_media)
-          attachMediaStream(local_media[0], stream)
-
-          if (callback) callback()
-        })
-        .catch(function () {
-          console.log("Access denied for audio/video")
-          if (errorback) errorback()
-        })
-    }
-
     var ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }]
     function join_chat_channel(channel, userdata) {
       signaling_socket.emit("join", { channel: channel, userdata: userdata })
     }
+
     var signaling_socket = null
     var local_media_stream = null
     var peers = {}
@@ -76,7 +50,7 @@
       signaling_socket.on("connect", function () {
         console.log("Connected to signaling server")
         setup_local_media(function () {
-          join_chat_channel(DEFAULT_CHANNEL, { "whatever-you-want-here": "stuff" })
+          join_chat_channel(DEFAULT_CHANNEL, { username: "juan perez" })
         })
       })
       signaling_socket.on("disconnect", function () {
