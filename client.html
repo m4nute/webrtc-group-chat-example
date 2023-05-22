@@ -30,39 +30,54 @@
   <body onload="init()"></body>
 
   <script>
+    // Generar URL donde se va a establecer el servidor de señalizacion
+    // Este se encarga de establecer y coordinar la conexion entre peers
     var SIGNALING_SERVER = window.location.protocol + "://" + window.location.hostname + (window.location.port ? ":" + window.location.port : "")
+
+    // Config default para unirse a conferencia
     var USE_AUDIO = true
     var USE_VIDEO = true
     var DEFAULT_CHANNEL = "canal"
     var MUTE_AUDIO_BY_DEFAULT = false
-    var ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }]
-    /* Variables de configuración para la conexión */
 
+    // Servidor ICE de google para facilitar conexiones P2P y evadir restricciones NAT
+    var ICE_SERVERS = [{ urls: "stun:stun.l.google.com:19302" }]
+
+    // Función para unirse a un canal de chat, emite el evento "join" sobre el server de señalizacion
+    // y le pasa el canal ("canal" por default) y la data del usuario
     function join_chat_channel(channel, userdata) {
       signaling_socket.emit("join", { channel: channel, userdata: userdata })
     }
-    /* Función para unirse a un canal de chat */
 
+    /* Funcion para salir de un canal de chat */
+    function part_chat_channel(channel) {
+      signaling_socket.emit("part", channel)
+    }
+
+    /* Variables para la señalizacion de la conexion*/
     var signaling_socket = null
     var local_media_stream = null
     var peers = {}
     var peer_media_elements = {}
-    /* Variables para la señalizacion de la conexion*/
 
+    // Función que se activa al establecer la conexión con el usuario que hace la request
     function init() {
       console.log("Connecting to signaling server")
+      // Establecer conexion de socket con la instancia del cliente y el signaling server
       signaling_socket = io(SIGNALING_SERVER)
       signaling_socket = io()
-      /* Conexión al servidor de señalizacion */
 
+      /* Conexión al servidor de señalizacion */
+      // Al conectarse al server de señalizacion, se triggerea el evento join y el usuario se une al canal especificado con su respectiva info (hardcodeada en este caso)
       signaling_socket.on("connect", function () {
         console.log("Connected to signaling server")
         setup_local_media(function () {
           join_chat_channel(DEFAULT_CHANNEL, { username: "juan perez" })
         })
       })
-      /* Evento cuando se conecta al servidor de señalizacion */
 
+      /* Evento cuando se desconecta al servidor de señalizacion */
+      // Al desconectar el socket, se remueven una por una las conexiones socket con cada peer
       signaling_socket.on("disconnect", function () {
         console.log("Disconnected from signaling server")
 
@@ -76,13 +91,9 @@
         peers = {}
         peer_media_elements = {}
       })
-      /* Evento cuando se desconecta del servidor de señalizacion */
 
-      function part_chat_channel(channel) {
-        signaling_socket.emit("part", channel)
-      }
-      /* Funcion para salir de un canal de chat */
-
+      // Funcion que se activa cuando se establece una nueva conexion con otro peer
+      // Puede ser cuando el propio usuario se une a una conferencia ya iniciada previamente, y conecta con todos los peers que ya estaban ahi; o cuando otro usuario se une a la conferencia
       signaling_socket.on("addPeer", function (config) {
         console.log("Signaling server said to add peer:", config)
         var peer_id = config.peer_id
@@ -90,11 +101,12 @@
           console.log("Already connected to peer ", peer_id)
           return
         }
+
+        // Esta instancia representa una on que incluye informacion sobre ambos usuarios y el tipo de informacion de la misma
         var peer_connection = new RTCPeerConnection({ iceServers: ICE_SERVERS }, { optional: [{ DtlsSrtpKeyAgreement: true }] })
         peers[peer_id] = peer_connection
 
-        javascript
-
+        // Esta funcion envia los candidatos ICE que contiene el objeto peer_connection, al servidor de señalizacion
         peer_connection.onicecandidate = function (event) {
           if (event.candidate) {
             signaling_socket.emit("relayICECandidate", {
@@ -107,10 +119,13 @@
           }
         }
         let x = 0
+
+        /* Evento cuando se agrega un peer en la conexion */
         peer_connection.ontrack = function (event) {
           if (x === 0) x++
           else return
           console.log("ontrack", event)
+          // Agregar tag HTML con el video y el audio por cada peer
           var remote_media = USE_VIDEO ? $("<video>") : $("<audio>")
           remote_media.attr("autoplay", "autoplay")
           if (MUTE_AUDIO_BY_DEFAULT) {
@@ -124,6 +139,7 @@
 
         peer_connection.addStream(local_media_stream)
 
+        // Emitir oferta a traves de signaling socket con la informacion del peer y compartirla con el otro peer remoto
         if (config.should_create_offer) {
           console.log("Creating RTC offer to ", peer_id)
           peer_connection.createOffer(
@@ -146,8 +162,8 @@
           )
         }
       })
-      /* Evento cuando se agrega un peer en la conexion */
 
+      // Recopilar informacion de la sesion (miembros conectados)
       signaling_socket.on("sessionDescription", function (config) {
         console.log("Remote description received: ", config)
         var peer_id = config.peer_id
@@ -155,6 +171,7 @@
         var remote_description = config.session_description
         console.log(config.session_description)
 
+        /* Evento cuando se recibe una descripcion de sesion remota */
         var desc = new RTCSessionDescription(remote_description)
         var stuff = peer.setRemoteDescription(
           desc,
@@ -189,15 +206,15 @@
         )
         console.log("Description Object: ", desc)
       })
-      /* Evento cuando se recibe una descripcion de sesion remota */
 
+      /* Evento cuando se recibe un IceCandidate */
       signaling_socket.on("iceCandidate", function (config) {
         var peer = peers[config.peer_id]
         var ice_candidate = config.ice_candidate
         peer.addIceCandidate(new RTCIceCandidate(ice_candidate))
       })
-      /* Evento cuando se recibe un IceCandidate */
 
+      // Eliminar peer y sus medios de stream
       signaling_socket.on("removePeer", function (config) {
         console.log("El servidor de señalización ha indicado eliminar al par:", config)
         var peer_id = config.peer_id
@@ -217,6 +234,7 @@
         delete peer_media_elements[config.peer_id]
       })
 
+      // Obtener media del propio usuario
       function setup_local_media(callback, errorback) {
         if (local_media_stream != null) {
           if (callback) callback()
